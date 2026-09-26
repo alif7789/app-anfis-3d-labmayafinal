@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  LABORATORIUM MAYA 3D — ANATOMI & FISIOLOGI KECANTIKAN DAN SPA
+  Versi Three.js dari aplikasi ANFIS SPA. Isinya saat ini:
+    1. PEMBUKA        — kamera masuk perlahan ke dalam ruang praktik spa
+    2. MENU UTAMA     — tujuh benda di ruangan menjadi tombol menu (hotspot 3D).
+                        AKSESNYA BERURUTAN TANPA SYARAT PENYELESAIAN: menu 1
+                        selalu terbuka, dan begitu sebuah menu PERNAH DIBUKA
+                        menu sesudahnya ikut terbuka (catatMenuDibuka +
+                        menuTerbuka). Batasnya satu angka, maju.buka = nomor
+                        menu terjauh yang boleh dibuka. PENGECUALIAN: membuka
+                        menu 5 (Tes Pengetahuan) sekaligus membuka menu 7
+                        (Hasil) — rekapnya boleh dilihat begitu tes dimulai,
+                        tidak perlu menunggu ruang pengakhiran (lihat
+                        catatMenuDibuka).
+                        SYARAT_MENU bukan lagi gerbang — sekarang hanya
+                        menentukan tanda centang hijau "tuntas" pada label.
+                        maju.buka SENGAJA tidak diberi nilai bawaan di
+                        MAJU_AWAL: kalau diisi di sana, Object.assign membuatnya
+                        selalu ada sehingga migrasiBukaMenu() tidak pernah
+                        berjalan dan pengguna dengan kemajuan lama terkunci
+                        ulang. Ketiadaannya ditangani lewat (maju.buka||1), dan
+                        itu pula yang membuat "Ulangi dari awal" otomatis
+                        mengunci kembali menu 2-6.
+                        migrasiBukaMenu() dipanggil dari IIFE mulai(), bukan di
+                        tempat `maju` dibuat: menuTuntas(5) menyentuh
+                        afterTuntas() yang baru dideklarasikan jauh di bawah.
+                        Menu terkunci tetap
+                        terlihat supaya alur belajarnya terbaca, tetapi nomornya
+                        berganti gembok, warnanya diredupkan, dan mengetuknya
+                        memunculkan panel penjelasan — bukan membuka ruangan.
+                        Gerbangnya dipasang di bukaPanel(), satu-satunya pintu
+                        yang dilewati baik ketukan label HTML maupun ketukan
+                        benda 3D-nya. perbaruiKunciMenu() dipanggil saat siap
+                        dan tiap kali pengguna kembali ke ruang spa.
+                        CATATAN CSS: .hs memakai opacity:0 dan hanya
+                        "#hotspot.hidup .hs" yang memunculkannya, jadi aturan
+                        peredupan menu terkunci HARUS ikut disarangkan di dalam
+                        "#hotspot.hidup" — kalau tidak, labelnya bocor terlihat
+                        saat pengguna sedang berada di dalam ruangan.
+    3. RUANG ORIENTASI — menu 1 "Pengantar Modul" memindahkan pengguna ke
+                        ruangan kedua berisi TELEVISI LAYAR DATAR menempel di
+                        dinding; materinya sama dengan layar Pengantar pada
+                        versi non-3D.
+    4. RUANG MATERI    — menu 2 "Materi Anatomi": tiga TELEVISI LAYAR DATAR
+                        berisi topik Kulit, Rambut, dan Tubuh/Sistem Otot
+                        (mengikuti STORYBOARD ANFIS REVISI 1 — materi "Wajah"
+                        sudah diganti "Tubuh"). Tiap layar menampilkan dua
+                        kolom: ilustrasi topik di kiri dan poin ringkas di
+                        kanan (fungsi layarTV). Memilih tab akan memalingkan
+                        kamera dan menyalakan layarnya lebih terang; layar
+                        lain meredup seperti mode siaga.
+                        LAYAR TENGAH ruangan ini merangkap monitor dengan cara
+                        yang persis sama seperti di ruang prosedur massage —
+                        lihat keterangan di menu 4.
+                        Ruangan ini SENGAJA TANPA LAMPU SOROT — layarnya sudah
+                        emisif, dan sorotan justru mencuci gambar sehingga
+                        terlihat pudar.
+    5. RUANG PERSIAPAN — menu 3 "Persiapan Perawatan": ruangan LATIHAN pertama,
+                        berisi tiga stasiun yang kameranya ikut berpaling —
+                        wastafel (6 langkah SOP persiapan diri, BEBAS URUTAN —
+                        ketuk kartu mana saja, urutan SOP yang dianjurkan tetap
+                        ditampilkan sebagai rujukan), rak &
+                        trolly (pilih 11 alat, tolak 2 pengecoh — alat yang
+                        benar muncul sungguhan di rak trolly lewat
+                        taruhDiTrolly), dan meja penerimaan (6 pertanyaan
+                        anamnesis + keputusan kelayakan klien). Data soalnya
+                        disalin apa adanya dari versi non-3D agar kedua
+                        aplikasi menilai hal yang sama.
+    6. RUANG PROSEDUR MASSAGE — menu 4: tiga TELEVISI LAYAR DATAR (Kaki,
+                        Punggung, Lengan & Dada) plus meja perawatan dan trolly
+                        minyak. Tiap layar menampilkan ilustrasi topik yang sama
+                        dengan ikon tabnya. SENGAJA TANPA LAMPU SOROT, seperti
+                        ruang materi.
+                        Panel hanya berisi DUA kartu: LANGKAH KERJA bervideo
+                        dan PETA TITIK. Kartu "Titik Teknik" dan "Galeri Teknik
+                        Nyata" sudah dihapus atas permintaan — larik MASSAGE dan
+                        GALERI sengaja DIPERTAHANKAN karena masih memasok nama
+                        area serta jumlah titik pada label tab, dan agar kedua
+                        kartu itu mudah dihidupkan lagi bila diperlukan.
+
+                        LANGKAH KERJA (larik LANGKAH_KERJA) DISALIN DARI DOKUMEN
+                        "LANGKAH PIJAT.docx" di akar repositori: 19 langkah kaki,
+                        6 punggung, 7 lengan. Judul dan kalimat keterangannya
+                        mengikuti dokumen apa adanya — termasuk gaya "User ..."
+                        dan sebagian salah ketiknya — supaya isi aplikasi bisa
+                        diadu langsung dengan dokumen acuannya. Yang diperbaiki
+                        hanya dua ejaan nama teknik yang jelas keliru ketik
+                        (Frcition->Friction, Petrisage->Petrissage).
+                        Langkah pertama tiap area memang tidak punya video di
+                        dokumen; barisnya tetap ditampilkan tanpa tombol putar
+                        (kelas .lkTanpa).
+                        Dokumen HANYA memuat gerakan KAKI, PUNGGUNG, dan LENGAN
+                        — belum ada rangkaian langkah DADA, padahal tab ketiga
+                        bernama "Lengan & Dada" karena peta titik, foto galeri,
+                        dan titik anatominya memang mencakup dada. Begitu
+                        dokumennya bertambah, sisipkan saja langkah dada ke
+                        LANGKAH_KERJA.lengan.
+
+                        VIDEONYA diunduh dari tautan Google Drive/OneDrive di
+                        dokumen lalu ditranscode ke dalam
+                        assets/materi/4/<area>/langkah/ bersama sampul .jpg-nya.
+                        Berkas asli 1080p 50fps beraudio PCM berukuran ±80-270 MB
+                        per klip dan tidak semua peramban mau memutar PCM di
+                        dalam MP4.
+                        SETELAN ENCODE SEKARANG (26 video, 13,2 MB):
+                          -vf "scale='min(854,iw)':-2[,fps=25]"
+                          -c:v libx264 -preset slow -crf 30 -profile:v high
+                          -pix_fmt yuv420p -movflags +faststart -an
+                        Audionya DIBUANG pada semua video. Sebagian klip memang
+                        senyap (-54 s/d -67 dB) dan sisanya tidak diperlukan.
+                        Bagian ",fps=25" hanya dipakai untuk sumber 50 fps;
+                        empat video punggung bersumber 24 fps dan TIDAK
+                        diturunkan — memaksa 24->25 justru menggandakan bingkai
+                        dan memboroskan bit.
+                        SELALU ENCODE DARI BERKAS ASLI, jangan dari hasil encode
+                        sebelumnya: mengompres berlapis menumpuk artefak tanpa
+                        menghemat banyak.
+                        JANGAN mengubahnya menjadi GIF atau WebP animasi: diukur
+                        pada klip yang sama, GIF 12fps 640px memakan 7,6 MB untuk
+                        6 detik sementara H.264 hanya 0,27 MB — sekitar 28x lebih
+                        boros. Untuk rekaman nyata, video terkompresi selalu jauh
+                        lebih hemat daripada format gambar beranimasi.
+                        CATATAN MUTU: pada zoom 4x tayangan melebar ke ±1200 px,
+                        jadi sumber 854 px ikut diperbesar ±1,4x dan terlihat
+                        sedikit lembut. Ini pertukaran yang dipilih demi menekan
+                        ukuran paket.
+                        Beberapa langkah memakai video yang sama persis seperti
+                        di dokumen, jadi berkasnya sengaja dipakai ulang.
+
+                        LAYAR TENGAH merangkap monitor: mengetuk gambar mana pun
+                        di panel menayangkannya di sana (pjTayangkan) dan kamera
+                        otomatis menghadap ke layar itu. Mengetuk layarnya
+                        memangkas jarak kamera separuh sehingga tampak 2x lebih
+                        besar.
+
+                        VIDEO TIDAK PERNAH DIPUTAR OTOMATIS. Mengetuk langkah
+                        di panel hanya MENAMPILKANNYA di layar tengah dalam
+                        keadaan terjeda, lengkap dengan sampulnya sebagai poster
+                        dan lencana besar ▶ (kelas .jeda). Rantai ketukan pada
+                        layar sesudah itu:
+                          terjeda -> putar -> zoom 2x -> zoom 4x -> normal -> 2x ...
+                        Gambar diam tidak punya tahap "putar" sehingga langsung
+                        masuk daur zoom.
+                        Cara ini sekaligus kebal kebijakan autoplay: diuji
+                        langsung, play() yang tidak lahir dari gestur pengguna
+                        ditolak Chrome dengan NotAllowedError. Di sini play()
+                        selalu berasal dari ketukan pada layar, jadi tidak
+                        pernah bergantung pada izin autoplay.
+                        Kartu terpilih di panel memakai ikon 📺 ("tampil di
+                        layar"), BUKAN ikon jeda — videonya memang belum
+                        berjalan sampai layarnya diketuk.
+
+                        ZOOMNYA TIGA TINGKAT dan berputar: normal -> 2x
+                        -> 4x -> normal (ZOOM_Z & ZOOM_GSR). Pada tingkat 4x
+                        panel samping ikut disurutkan (body.zoomPenuh) dan
+                        kamera digeser ke tengah supaya tayangannya boleh
+                        memakai seluruh lebar jendela; #hintZoom memberi tahu
+                        cara keluarnya karena tombol kembali ikut tersembunyi.
+                        Berganti tab mengembalikan layar tengah ke topiknya.
+                        Mekanisme ini DIPAKAI BERSAMA oleh ruang materi (menu 2)
+                        dan ruang massage (menu 4): monitorRuang(layar) menunjuk
+                        layar tengah ruangan yang sedang dibuka, dan tiap unit
+                        layar menyimpan pulih() untuk memulangkan tayangan
+                        topiknya sendiri. Menambahkan ruangan lain cukup dengan
+                        mendaftarkannya di monitorRuang().
+
+                        TAYANGANNYA — gambar maupun video — ditampilkan sebagai
+                        elemen HTML (#tayangLayar) yang DITEMPELKAN pada layar
+                        3D, bukan digambar ke kanvas tekstur. Sebabnya: lewat
+                        file://, menggambar berkas gambar/video ke kanvas
+                        MENODAI kanvas itu, dan WebGL menolak mengunggahnya
+                        ("Tainted canvases may not be loaded") sehingga layar
+                        jadi hitam. Lewat http:// tidak terjadi — jadi bug
+                        semacam ini hanya muncul saat aplikasi dibuka dengan
+                        klik ganda, persis cara pakai yang dituju.
+                        Posisi wadahnya dihitung tiap frame dari proyeksi
+                        keempat sudut bidang layar (perbaruiTayangLayar),
+                        sehingga ikut membesar saat kamera mendekat. Judul dan
+                        penjelasan tiap video ditulis langsung pada larik
+                        LANGKAH_KERJA agar mudah disunting manual.
+
+                        Data URI (mentor, ilustrasi topik) TIDAK menodai kanvas,
+                        jadi tetap boleh dipakai sebagai tekstur.
+    7. RUANG TES PENGETAHUAN — menu 5: soal MENJODOHKAN mengikuti storyboard
+                        "PENILAIAN PENGETAHUAN" (anfis-5.jpeg). Peserta MENYERET
+                        kartu nama otot ke kotak jawaban pada peta anatomi;
+                        benar -> kotak hijau bertanda centang, keliru -> kotak
+                        merah bertanda silang dan kartunya kembali. Tiga area:
+                        punggung, kaki, serta lengan & dada, masing-masing 4
+                        kotak plus 1-2 nama pengecoh (larik TES).
+
+                        KOTAK JAWABAN diletakkan TEPAT DI ATAS label yang sudah
+                        tercetak pada berkas peta — kalau tidak, jawabannya
+                        terbaca dari bawah. Posisinya dalam persen, diukur
+                        langsung dari ketiga PNG; bila petanya diganti, ukur
+                        ulang. Latarnya harus pekat, bukan tembus pandang.
+
+                        SERET-LEPAS memakai Pointer Events, BUKAN HTML5
+                        drag-and-drop: yang terakhir itu tidak jalan di layar
+                        sentuh. Kartu yang diseret digandakan jadi "hantu"
+                        (.tsHantu) yang mengikuti jari.
+
+                        PETA ADA DI LAYAR TV, bukan di panel (#tesLayar,
+                        ditempelkan pada mesh layarTes lewat tempelKeLayar() —
+                        fungsi yang sama dipakai #tayangLayar di ruang materi
+                        dan massage). Panel hanya memuat petunjuk dan kartu,
+                        sehingga tidak perlu digulung sama sekali: menyeret
+                        menuntut peta dan kartu tampak serentak.
+                        Kotak jawaban diposisikan dalam persen terhadap GAMBAR,
+                        jadi gambarnya dibungkus .bingkai ber-aspect-ratio asli
+                        (pw/ph pada larik TES) — kalau slot ditaruh langsung di
+                        bidang layar, bilah kosong object-fit membuat posisinya
+                        meleset.
+                        LAYAR RUANG INI SENGAJA HAMPIR PERSEGI (2,48 x 2,52),
+                        bukan 16:9 seperti ruangan lain: dua dari tiga peta
+                        berorientasi potret dan pada bidang 16:9 keduanya
+                        mengerut sampai kotak jawabannya tidak terbaca.
+                        Pada layar sempit panel tes TETAP kolom kanan, tidak
+                        ikut menjadi lembar bawah seperti panel lain — peta
+                        butuh tinggi penuh.
+
+    8. RUANG PENGAKHIRAN — menu 6 "Pengakhiran & After Care": ruang perawatan
+                        seusai sesi (lenan bersih terlipat, troli teh mengepul,
+                        keranjang lenan kotor, stasiun sanitasi). Dua tab:
+                        6 langkah penutup yang harus dibaca, serta saran after
+                        care dan sanitasi ruangan.
+    9. RUANG PENGHARGAAN — menu 7 "Hasil": rekap 10 capaian dari
+                        keenam menu. Tekstur sertifikat pada bingkai
+                        DIBANGKITKAN ULANG tiap masuk mengikuti nilai terbaru
+                        (lihat texSertifikat3D & hsRender).
+
+  KEMAJUAN BELAJAR disimpan di localStorage kunci 'anfis3d_progress' (objek
+    `maju`) — HANYA untuk rekap di ruang penghargaan. Latihan di ruang
+    persiapan SELALU dimulai dari nol setiap kali ruangan dibuka
+    (mulaiPersiapan) supaya bisa diulang berkali-kali; jangan memulihkan
+    keadaan latihan dari `maju`, karena pengguna akan mendapati semua alat
+    sudah terpilih begitu masuk. Tombol "Ulangi dari awal" pada ruang
+    penghargaan mengosongkan catatan capaiannya.
+
+  RAK ALAT diisi lewat isiRakAlat() yang dipanggil dari IIFE mulai() di akhir
+    berkas, BUKAN dari dalam buatRuangPersiapan(): larik ALAT dan IKON_ALAT
+    baru dideklarasikan setelah pembangun ruangan dijalankan. Seluruh 13 alat
+    berjajar di rak; yang diambil ke trolly disembunyikan (rakAlat[id].visible)
+    sehingga isi rak selalu mencerminkan apa yang belum diambil, dan
+    kosongkanTrolly() memunculkannya kembali.
+
+  BERKAS GAMBAR BERLATAR KOTAK-KOTAK: beberapa berkas dari pengguna tersimpan
+    mode RGB dengan pola transparansi ikut menjadi piksel. Pembersihnya ada dua
+    macam, pilih sesuai kasusnya:
+      - objek berwarna (mentor, ikon kimono) → ambil piksel terang & netral yang
+        tersambung ke tepi, plus kantong terkurung yang berpola dua nada.
+      - objek PUTIH (handuk, botol oil) → cara di atas ikut memakan objeknya
+        karena putihnya menyambung dengan kotak terang latar. Pakai sifat
+        BERSELANG-SELING kotak-kotaknya: piksel latar berbeda ~8 tingkat dari
+        piksel sejauh satu sel (±25 px) di empat arah, sedangkan bidang putih
+        rata tidak. Jangan pakai binary_closing sebelum pelabelan — itu justru
+        menghapus hasil deteksinya.
+
+  TIDAK ADA LAGI PAPAN BERSOROT LAMPU. Semua bidang penyaji — pengantar,
+  materi, massage, dan sertifikat — kini televisi layar datar yang menempel
+  di dinding (matBezel + dudukan + lampu daya kecil) dan memancarkan
+  cahayanya sendiri lewat emissiveMap. Lampu sorot dibuang karena justru
+  mencuci warna gambarnya sehingga terlihat pudar. Lampu yang MASIH ADA di
+  ruang persiapan bukan lampu papan melainkan penerangan ruangan yang
+  diarahkan ke lantai stasiun — jangan ikut dibuang, ruangannya akan gelap.
+  matBezel dideklarasikan di lingkup modul SEBELUM pembangun ruangan karena
+  dipakai tiga ruangan sekaligus.
+
+  BIDANG BERBINGKAI (cermin, layar TV, papan, sertifikat) selalu diletakkan
+    setidaknya ~0,005 satuan DI DEPAN muka bingkainya. kotakBulat() memusatkan
+    kotak pada sumbu z, jadi muka depannya ada di d/2 — menaruh bidang isi
+    tepat di angka itu membuat keduanya berebut kedalaman, dan hasilnya
+    terlihat sebagai kelip-kelip berpola dither yang berubah tiap frame.
+    Inilah penyebab cermin ruang persiapan dahulu berkelip, bukan bahan
+    metaliknya. Cara memastikan: ganti sementara bahannya dengan
+    MeshBasicMaterial polos — kalau polanya tetap muncul, itu z-fighting,
+    bukan masalah tekstur.
+
+  MENTOR ditempatkan di SEMUA ruangan lewat satu fungsi bersama taruhMentor().
+    Parameter `ofs` wajib diisi geseran X ruangan induknya, karena sudut hadap
+    billboard dihitung terhadap posisi kamera di dunia. Gambarnya SOSOK UTUH
+    sampai kaki, jadi bawaannya berdiri di lantai (dasar 0) setinggi 1,62 m —
+    jangan disembunyikan di balik perabot seperti versi gambar lama yang
+    terpotong sebatas paha.
+
+  MENGGANTI GAMBAR MENTOR: timpa assets/mentor.png (WAJIB berlatar transparan),
+    lalu bangkitkan ulang lib/mentor.js — kecilkan ke tinggi 900 px, kuantisasi
+    ke 200 warna, dan sematkan sebagai data URI base64. Bila berkas barunya
+    masih memuat pola kotak-kotak transparansi sebagai piksel (mode RGB),
+    latarnya harus dibuang lebih dulu: ambil piksel terang & netral yang
+    tersambung ke tepi, plus kantong terkurung yang memperlihatkan pola dua
+    nada — pembeda ini yang menjaga putih mata tetap utuh.
+
+  DUA RUANGAN DALAM SATU PANGGUNG
+    Ruang orientasi dibangun terpisah sejauh OFS (30 satuan) pada sumbu X,
+    bukan disembunyikan-tampilkan. Perpindahan dilakukan dengan meredupkan
+    layar lalu memindahkan kamera seketika — lihat keLayar(nama, lompat) dan
+    masukRuang(). Sebuah menu berpindah ruangan bila objeknya pada larik MENU
+    memiliki properti `ruang`; tanpa properti itu, menu hanya membuka panel
+    keterangan. MENAMBAH RUANGAN BARU: buat fungsi pembangunnya dengan offset
+    X sendiri, tambahkan satu entri pada PANDANG, lalu isi `ruang` pada menu
+    yang bersangkutan.
+
+    Teks materi ditampilkan sebagai lapisan HTML (#pengantarUI, #materiUI) di
+    atas kanvas supaya tajam dan bisa digulung; ruangan 3D-nya yang memberi
+    suasana. Gambar materi dimuat sebagai <img> HTML biasa dari
+    assets/materi/, BUKAN tekstur WebGL — inilah yang membuatnya tetap tampil
+    saat halaman dibuka lewat file://; tekstur WebGL dari berkas terpisah
+    diblokir peramban di sana. Ilustrasi bisa diketuk untuk diperbesar (#mZoom).
+
+  CARA MEMBUKA
+    Cukup klik ganda index.html. Three.js sengaja dipaket sebagai skrip
+    global (lib/three.global.js), bukan modul ES, supaya aplikasi tetap
+    jalan lewat file:// tanpa perlu web server.
+
+  ISI RUANGAN dibangun sepenuhnya lewat kode (geometri + tekstur kanvas),
+  jadi tidak ada berkas model/gambar yang perlu ikut disalin. Semua benda
+  didaftarkan pada fungsi buatRuang() dan seterusnya di bagian skrip.
+
+  ASET
+    lib/three.global.js   Three.js r169 (MIT, hak cipta Three.js Authors)
+    assets/materi/*.jpg   ilustrasi materi (kulit, rambut, otot) — disalin dari
+                          app-anfis-spa/assets agar kedua versi memakai gambar
+                          yang sama. Ditampilkan lewat <img>, bukan tekstur.
+    assets/alat/icons/*.png  ilustrasi 9 alat (bed, selimut, kimono, bantal,
+                          penutupmata, handuk, oil, hair_bando, kemben).
+                          Dipakai DUA KALI: sebagai gambar kartu pada panel
+                          (lewat <img>) dan sebagai papan bergambar di rak
+                          dinding & trolly ruang persiapan (lewat data URI di
+                          lib/alat.js, karena itu tekstur WebGL). Peta id alat →
+                          nama berkas ada pada IKON_ALAT — perhatikan id 'bando'
+                          memakai berkas bernama hair_bando. Empat sisanya
+                          (trolly, disposable panties, dan kedua pengecoh) belum
+                          punya ilustrasi dan memakai kartu beremoji lewat
+                          kartuAlat().
+                          Berkas di sini sudah dikecilkan ke 160 px, versi data
+                          URI-nya 320 px; sumber resolusi penuh di
+                          assets/alat/icons/sumber/.
+                          CARA MENAMBAH IKON BARU: pangkas ke isi gambar, pasang
+                          di kanvas persegi transparan dengan sisi terpanjang
+                          menyentuh tepi, simpan 160 px ke icons/ dan sisipkan
+                          versi 320 px sebagai data URI ke lib/alat.js. Saat
+                          mengecilkan berkas, kuantisasi HANYA kanal RGB lalu
+                          pasang kembali alfa aslinya — mengkuantisasi RGBA
+                          sekaligus merusak tepi alfa menjadi bintik-bintik.
+    assets/alat/*.jpg     foto alat versi lama — tidak lagi dirujuk aplikasi,
+                          disimpan sebagai cadangan.
+
+  ARSIP SUMBER dipindahkan KE LUAR folder aplikasi, ke
+    ../_sumber-anfis-3d/ — berisi gambar resolusi penuh bahan pembuat ikon
+    (dulu di assets/*/sumber/, 25 MB). Aplikasi tidak pernah merujuknya, jadi
+    memisahkannya menekan ukuran paket yang dibagikan tanpa kehilangan apa pun.
+    Kalau perlu membuat ikon baru, bahannya ada di sana.
+
+    lib/materi2.js        ilustrasi topik untuk layar TV ruang materi DAN ruang
+                          prosedur massage (enam topik), diambil dari arsip
+                          sumber ikon (resolusi penuh, BUKAN dari assets/icons/
+                          yang sudah dikecilkan untuk tab).
+                          Data URI, karena dipakai sebagai tekstur WebGL.
+    assets/materi/4/<area>/langkah/*.mp4 + *.jpg   video tiap langkah kerja
+                          beserta sampulnya, didaftarkan pada larik
+                          LANGKAH_KERJA. Sampulnya dipakai dua kali: gambar
+                          kecil pada kartu panel DAN poster layar TV selagi
+                          video menunggu diketuk — jadi setiap kali videonya
+                          diganti, sampulnya WAJIB dibangkitkan ulang, kalau
+                          tidak layar memperlihatkan cuplikan rekaman lama.
+                            ffmpeg -y -ss 1 -i <video> -frames:v 1 -q:v 4 <jpg>
+    assets/materi/4/      peta titik anatomi tiap area (kaki, punggung,
+                          lengan_dan_dada) — label pada gambarnya sudah cocok
+                          dengan titik pada larik MASSAGE. Ditampilkan sebagai
+                          kartu "Peta Titik" di panel lewat <img>; seperti
+                          gambar panel lainnya, mengetuknya menayangkannya di
+                          layar tengah. Berkas di sini sudah dikecilkan ke sisi
+                          760 px; aslinya di 4/sumber/.
+    assets/icons/*.png    ilustrasi label tab (kulit, rambut, tubuh_dan_otot,
+                          kaki, punggung, lengan_dan_dada) — dipakai pada tab
+                          ruang materi dan ruang prosedur massage lewat helper
+                          ikonTab(); tab tanpa ilustrasi jatuh ke emoji dan
+                          kotaknya tetap seukuran supaya barisnya sejajar.
+                          Berkas di sini SUDAH dikecilkan ke 160x160 (±10 KB);
+                          gambar asli beresolusi penuh disimpan di
+                          assets/icons/sumber/. Bila menambah ikon baru,
+                          lakukan hal yang sama lalu isi properti `gbr` pada
+                          entri MATERI atau larik PJ_IKON.
+    lib/mentor.js         gambar mentor terapis dalam bentuk data URI. Aslinya
+                          ada di assets/mentor.png; berkas terpisah tidak bisa
+                          dimuat sebagai tekstur lewat file://, jadi disematkan.
+    assets/bgmSpa.mp3     musik latar spa — sumber: paket Basic Spa Massage,
+                          Jateng Pintar, Disdikbud Provinsi Jawa Tengah.
+                          Untuk menggantinya, timpa berkas dengan nama sama.
+
+  MENGATUR KUALITAS: konstanta MUTU di bagian skrip mengatur resolusi bayangan
+  dan jumlah partikel; nilainya otomatis diturunkan pada perangkat lemah.
+  ==========================================================================
+-->
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Laboratorium Maya 3D — Anatomi &amp; Fisiologi Kecantikan dan SPA</title>
+<style>
+:root{
+  --emas:#d8b25e; --emas2:#f0d79a;
+  --ungu:#6b4c8a; --ungu2:#9a6fbd;
+  --krem:#f7efe4; --teks:#2b2130;
+  --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+  --judul:Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0b0709}
+body{font-family:var(--font);color:#fff;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+
+/* ---------- lapisan UI di atas kanvas ---------- */
+#ui{position:fixed;inset:0;pointer-events:none;z-index:5}
+#ui > *{pointer-events:auto}
+
+/* gelap-terang saat perpindahan layar */
+#tirai{position:fixed;inset:0;background:#0b0709;z-index:20;pointer-events:none;
+  transition:opacity 1.1s ease}
+
+/* ---------- layar memuat ---------- */
+#muat{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:22px;background:#0b0709;
+  transition:opacity .8s ease}
+#muat.pergi{opacity:0;pointer-events:none}
+#muat .lilin{width:46px;height:64px;position:relative}
+#muat .lilin i{position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:20px;height:38px;border-radius:4px 4px 3px 3px;
+  background:linear-gradient(180deg,#fdf6e6,#e6d6b8)}
+#muat .lilin b{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);
+  width:13px;height:24px;border-radius:50% 50% 42% 42%;
+  background:radial-gradient(ellipse at 50% 72%,#fff6d0,#ffb545 55%,rgba(255,120,20,0) 78%);
+  filter:blur(.4px);animation:apiMuat 1.5s ease-in-out infinite}
+@keyframes apiMuat{0%,100%{transform:translateX(-50%) scaleY(1) scaleX(1)}
+  35%{transform:translateX(-53%) scaleY(1.16) scaleX(.9)}
+  70%{transform:translateX(-47%) scaleY(.92) scaleX(1.07)}}
+#muat p{font-size:13px;letter-spacing:3px;color:#b9a68f;text-transform:uppercase}
+#muat .bar{width:210px;height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+#muat .bar b{display:block;height:100%;width:0%;border-radius:2px;
+  background:linear-gradient(90deg,var(--emas),var(--emas2));transition:width .3s ease}
+
+/* ---------- kartu pembuka ---------- */
+#pembuka{position:absolute;right:5%;top:50%;transform:translateY(-50%);width:min(430px,42vw);
+  background:linear-gradient(165deg,rgba(24,15,20,.72),rgba(16,10,14,.66));
+  border:1px solid rgba(216,178,94,.42);border-radius:18px;padding:30px 32px 26px;
+  backdrop-filter:blur(14px) saturate(1.1);text-align:center;
+  box-shadow:0 30px 70px rgba(0,0,0,.6);opacity:0;transform:translateY(-46%);
+  transition:opacity 1s ease .35s,transform 1s cubic-bezier(.2,.9,.3,1) .35s}
+#pembuka.tampil{opacity:1;transform:translateY(-50%)}
+#pembuka .kode{font-size:10.5px;letter-spacing:2.6px;color:var(--emas);font-weight:700}
+#pembuka h1{font-family:var(--judul);font-size:clamp(26px,3.1vw,40px);line-height:1.06;
+  margin:12px 0 6px;color:#fff;text-shadow:0 3px 24px rgba(0,0,0,.6)}
+#pembuka h2{font-family:var(--judul);font-style:italic;font-weight:400;
+  font-size:clamp(13px,1.3vw,17px);color:var(--emas2)}
+#pembuka .garis{width:64%;height:1px;margin:16px auto;
+  background:linear-gradient(90deg,transparent,rgba(216,178,94,.75),transparent)}
+#pembuka p{font-size:13.5px;line-height:1.65;color:#d8ccc2}
+#pembuka .siap{display:flex;justify-content:center;gap:20px;margin:18px 0 20px;flex-wrap:wrap}
+#pembuka .siap div{font-size:10.5px;color:#b6a898;line-height:1.35;letter-spacing:.3px}
+#pembuka .siap b{display:block;font-size:19px;margin-bottom:3px}
+.tblEmas{border:none;cursor:pointer;font-family:var(--font);font-weight:800;letter-spacing:1.4px;
+  font-size:13px;color:#3a2a10;padding:13px 30px;border-radius:30px;
+  background:linear-gradient(180deg,var(--emas2),var(--emas));
+  box-shadow:0 8px 24px rgba(216,178,94,.34),inset 0 1px 0 rgba(255,255,255,.6);
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s}
+.tblEmas:hover{transform:translateY(-2px);filter:brightness(1.06);
+  box-shadow:0 12px 30px rgba(216,178,94,.46),inset 0 1px 0 rgba(255,255,255,.6)}
+.tblEmas:active{transform:translateY(1px)}
+#pembuka .isyarat{font-size:10.5px;color:#8d8073;margin-top:14px;letter-spacing:.4px}
+
+/* ---------- label hotspot menu (proyeksi 3D ke layar) ---------- */
+#hotspot{position:absolute;inset:0;pointer-events:none}
+.hs{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;
+  display:flex;align-items:center;gap:9px;padding:7px 15px 7px 8px;border-radius:30px;
+  background:linear-gradient(150deg,rgba(22,14,19,.74),rgba(14,9,13,.66));
+  border:1px solid rgba(216,178,94,.34);backdrop-filter:blur(9px);white-space:nowrap;
+  opacity:0;transition:opacity .5s ease,transform .28s cubic-bezier(.2,.9,.3,1),
+    border-color .22s,box-shadow .22s;box-shadow:0 10px 26px rgba(0,0,0,.45)}
+#hotspot.hidup .hs{opacity:1}
+#hotspot:not(.hidup) .hs{pointer-events:none}
+.hs .no{width:25px;height:25px;flex:none;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11.5px;font-weight:800;color:#3a2a10;
+  background:linear-gradient(180deg,var(--emas2),var(--emas))}
+.hs .tk{display:flex;flex-direction:column;gap:1px;text-align:left}
+.hs .tk b{font-size:12.5px;font-weight:700;letter-spacing:.2px;color:#fff}
+.hs .tk span{font-size:10px;color:#a99b8c;letter-spacing:.3px}
+.hs:hover,.hs.sorot{transform:translate(-50%,-50%) scale(1.07);
+  border-color:rgba(240,215,154,.85);box-shadow:0 14px 34px rgba(216,178,94,.3)}
+/* Menu terkunci: masih terlihat supaya alurnya terbaca, tetapi jelas belum
+   dapat dibuka. Nomornya diganti gembok oleh perbaruiKunciMenu(). */
+.hs.terkunci{cursor:not-allowed;filter:saturate(.25)}
+#hotspot.hidup .hs.terkunci{opacity:.42}
+.hs.terkunci .no{background:rgba(255,255,255,.09);color:#8d8073;box-shadow:none}
+.hs.terkunci:hover,.hs.terkunci.sorot{transform:translate(-50%,-50%)}
+.hs.tuntas .no{background:linear-gradient(150deg,#4bbd8a,#2f8f66);color:#06231a}
+.hs::after{content:'';position:absolute;left:50%;top:100%;width:1px;height:16px;
+  background:linear-gradient(180deg,rgba(216,178,94,.7),transparent)}
+
+/* ---------- bilah bawah menu ---------- */
+#bar{position:absolute;left:50%;bottom:22px;transform:translateX(-50%) translateY(24px);
+  display:flex;align-items:center;gap:14px;padding:9px 12px 9px 18px;border-radius:40px;
+  background:linear-gradient(150deg,rgba(22,14,19,.76),rgba(14,9,13,.68));
+  border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(11px);
+  box-shadow:0 14px 40px rgba(0,0,0,.5);opacity:0;pointer-events:none;
+  transition:opacity .7s ease .5s,transform .7s cubic-bezier(.2,.9,.3,1) .5s}
+#bar.tampil{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+#bar .ket{font-size:11.5px;color:#a99b8c;letter-spacing:.4px}
+#bar .ket b{color:var(--emas2);font-weight:700}
+.ikon{width:34px;height:34px;flex:none;border-radius:50%;border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.07);color:#e8dcd0;cursor:pointer;font-size:15px;
+  display:flex;align-items:center;justify-content:center;transition:.18s}
+.ikon:hover{background:rgba(216,178,94,.24);border-color:rgba(216,178,94,.5);transform:translateY(-2px)}
+.ikon.mati{opacity:.42}
+
+/* ---------- panel keterangan menu ---------- */
+#panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-46%) scale(.96);
+  width:min(430px,86vw);background:linear-gradient(165deg,rgba(26,17,22,.93),rgba(16,10,14,.9));
+  border:1px solid rgba(216,178,94,.4);border-radius:18px;padding:26px 28px;
+  backdrop-filter:blur(16px);box-shadow:0 30px 80px rgba(0,0,0,.7);
+  opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s cubic-bezier(.2,.9,.3,1);
+  text-align:center;z-index:8}
+#panel.tampil{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+#panel .ik{font-size:38px;line-height:1}
+#panel h3{font-family:var(--judul);font-size:22px;margin:10px 0 4px;color:#fff}
+#panel .sub{font-size:11px;letter-spacing:2px;color:var(--emas);text-transform:uppercase}
+#panel p{font-size:13.5px;line-height:1.65;color:#cfc3b8;margin:14px 0 20px}
+#panel .aksi{display:flex;gap:10px;justify-content:center}
+.tblAbu{border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#e8dcd0;
+  cursor:pointer;font-family:var(--font);font-weight:700;font-size:12px;letter-spacing:.8px;
+  padding:11px 20px;border-radius:26px;transition:.18s}
+.tblAbu:hover{background:rgba(255,255,255,.15)}
+
+/* redup lembut di tepi layar — memberi kesan sinematik dan
+   menjaga teks sudut tetap terbaca di atas dinding yang terang */
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:4;
+  background:
+    linear-gradient(180deg,rgba(10,6,9,.55),transparent 22%,transparent 74%,rgba(10,6,9,.5)),
+    radial-gradient(ellipse 78% 74% at 50% 48%,transparent 48%,rgba(10,6,9,.42) 100%)}
+
+/* ---------- lapisan materi RUANG ORIENTASI (menu 1) ---------- */
+#pengantarUI,#materiUI,#siapUI,#tutupUI,#hasilUI,#pijatUI,#tesUI{position:absolute;right:0;top:0;bottom:0;width:min(560px,46vw);
+  display:flex;flex-direction:column;padding:24px 26px 20px;
+  background:linear-gradient(270deg,rgba(14,9,13,.94) 58%,rgba(14,9,13,.78) 84%,rgba(14,9,13,0));
+  opacity:0;pointer-events:none;transition:opacity .8s ease}
+#pengantarUI.tampil,#materiUI.tampil,#siapUI.tampil,#tutupUI.tampil,#hasilUI.tampil,#pijatUI.tampil,#tesUI.tampil{opacity:1;pointer-events:auto}
+#pengantarUI .pjKepala,#materiUI .pjKepala,#siapUI .pjKepala,#tutupUI .pjKepala,#hasilUI .pjKepala,#pijatUI .pjKepala,#tesUI .pjKepala{flex:none;padding-bottom:14px;border-bottom:1px solid rgba(216,178,94,.28)}
+#pengantarUI .pjKepala .k,#materiUI .pjKepala .k,#siapUI .pjKepala .k,#tutupUI .pjKepala .k,#hasilUI .pjKepala .k,#pijatUI .pjKepala .k,#tesUI .pjKepala .k{font-size:10px;letter-spacing:2.4px;color:var(--emas);font-weight:700}
+#pengantarUI .pjKepala h2,#materiUI .pjKepala h2,#siapUI .pjKepala h2,#tutupUI .pjKepala h2,#hasilUI .pjKepala h2,#pijatUI .pjKepala h2,#tesUI .pjKepala h2{font-family:var(--judul);font-size:clamp(22px,2.4vw,30px);
+  color:#fff;margin:6px 0 3px}
+#pengantarUI .pjKepala p,#materiUI .pjKepala p,#siapUI .pjKepala p,#tutupUI .pjKepala p,#hasilUI .pjKepala p,#pijatUI .pjKepala p,#tesUI .pjKepala p{font-size:12px;color:#a99b8c}
+#pengantarUI .pjIsi,#materiUI .pjIsi,#siapUI .pjIsi,#tutupUI .pjIsi,#hasilUI .pjIsi,#pijatUI .pjIsi,#tesUI .pjIsi{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;gap:11px;padding:14px 6px 14px 0;
+  scrollbar-width:thin;scrollbar-color:rgba(216,178,94,.5) transparent}
+#pengantarUI .pjIsi::-webkit-scrollbar,#materiUI .pjIsi::-webkit-scrollbar,#siapUI .pjIsi::-webkit-scrollbar,#tutupUI .pjIsi::-webkit-scrollbar,#hasilUI .pjIsi::-webkit-scrollbar,#pijatUI .pjIsi::-webkit-scrollbar,#tesUI .pjIsi::-webkit-scrollbar{width:6px}
+#pengantarUI .pjIsi::-webkit-scrollbar-thumb,#materiUI .pjIsi::-webkit-scrollbar-thumb,#siapUI .pjIsi::-webkit-scrollbar-thumb,#tutupUI .pjIsi::-webkit-scrollbar-thumb,#hasilUI .pjIsi::-webkit-scrollbar-thumb,#pijatUI .pjIsi::-webkit-scrollbar-thumb,#tesUI .pjIsi::-webkit-scrollbar-thumb{background:rgba(216,178,94,.5);border-radius:3px}
+.pjKartu{flex:none;background:linear-gradient(150deg,rgba(38,25,33,.8),rgba(24,15,21,.72));
+  border:1px solid rgba(255,255,255,.09);border-radius:13px;padding:14px 16px}
+.pjKartu.sorot{background:linear-gradient(150deg,rgba(58,42,20,.7),rgba(34,24,14,.6));
+  border-color:rgba(216,178,94,.42)}
+.pjKartu h5{font-family:var(--judul);font-size:15px;color:var(--emas2);margin-bottom:7px}
+.pjKartu p,.pjKartu li{font-size:12.4px;line-height:1.62;color:#cfc3b8}
+.pjKartu p+p{margin-top:.6em}
+.pjKartu ul,.pjKartu ol{padding-left:1.15em;display:flex;flex-direction:column;gap:3px}
+.pjKartu b{color:#efe4d8}
+.pjKartu .kutip{font-style:italic;color:#e6d4b4}
+.pjAlur{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.pjAlur span{background:rgba(216,178,94,.14);border:1px solid rgba(216,178,94,.3);
+  border-radius:20px;padding:3px 9px;font-size:10.5px;color:#e2d3bd;font-weight:600}
+#pengantarUI .pjKaki,#materiUI .pjKaki,#siapUI .pjKaki,#tutupUI .pjKaki,#hasilUI .pjKaki,#pijatUI .pjKaki,#tesUI .pjKaki{flex:none;padding-top:14px;display:flex;justify-content:flex-end}
+@media (max-width:820px){
+  /* layar sempit: ruangan tetap terlihat di bagian atas, materi jadi lembar bawah */
+  #pengantarUI,#materiUI,#siapUI,#tutupUI,#hasilUI,#pijatUI,#tesUI{width:100%;top:36%;padding-top:16px;
+    background:linear-gradient(180deg,rgba(14,9,13,0),rgba(14,9,13,.93) 11%,rgba(14,9,13,.97))}
+  #pengantarUI .pjKepala h2,#materiUI .pjKepala h2,#siapUI .pjKepala h2,
+  #tutupUI .pjKepala h2,#hasilUI .pjKepala h2,#pijatUI .pjKepala h2,
+  #tesUI .pjKepala h2{font-size:21px}
+  /* layar sempit: petanya harus muat di atas baris kartu yang menempel.
+     Diberi #tesUI karena aturan dasar .tsPeta img ditulis setelah blok ini —
+     dengan spesifisitas sama, yang belakangan akan menang. */
+  #tesUI{top:0;width:min(320px,41vw);
+    background:linear-gradient(200deg,rgba(14,9,13,.9),rgba(14,9,13,.97))}
+  #tesUI .pjKartu:first-child p{font-size:10.6px}
+  #tesUI .pjKepala p{display:none}
+  #tesUI .tsKartu button{font-size:10.6px;padding:6px 10px}
+  body.di-ruang #judulKecil{opacity:0}
+}
+
+/* tab pilihan topik pada ruang materi */
+.mtTab{flex:none;display:flex;gap:7px;padding:12px 0 2px}
+.mtTab button{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.11);
+  color:#cfc3b8;border-radius:10px;padding:8px 6px 9px;cursor:pointer;font-family:var(--font);
+  font-size:11.5px;font-weight:700;transition:.16s;display:flex;flex-direction:column;
+  gap:3px;align-items:center;line-height:1.25}
+.mtTab button i{font-style:normal;font-size:24px;height:46px;display:flex;
+  align-items:center;justify-content:center}
+/* sebagian label memakai ilustrasi dari assets/icons; kotaknya disamakan
+   dengan emoji agar tinggi semua tab tetap sejajar */
+.mtTab button img.ikon{width:46px;height:46px;object-fit:contain;display:block;
+  border-radius:50%;opacity:.82;
+  background:radial-gradient(circle,rgba(255,255,255,.16),rgba(255,255,255,.05) 68%,transparent 72%);
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.5));transition:transform .16s,opacity .16s}
+.mtTab button:hover img.ikon{transform:scale(1.07);opacity:1}
+.mtTab button.aktif img.ikon{opacity:1;
+  background:radial-gradient(circle,rgba(240,215,154,.3),rgba(216,178,94,.1) 68%,transparent 72%);
+  filter:drop-shadow(0 2px 8px rgba(216,178,94,.6))}
+.mtTab button span{font-size:9.5px;font-weight:600;opacity:.65}
+.mtTab button:hover{background:rgba(255,255,255,.15);transform:translateY(-1px)}
+.mtTab button.aktif{background:linear-gradient(180deg,rgba(240,215,154,.3),rgba(216,178,94,.14));
+  border-color:rgba(240,215,154,.7);color:#fff}
+.pjKartu img{width:100%;max-height:250px;object-fit:contain;border-radius:9px;
+  margin-bottom:9px;cursor:zoom-in;display:block;background:rgba(255,255,255,.05);
+  box-shadow:0 8px 22px rgba(0,0,0,.45)}
+.pjKartu .zoomKet{font-size:10px;color:#8d8073;margin:-5px 0 8px;letter-spacing:.3px}
+
+/* ---------- ruang persiapan (menu 3) ---------- */
+.mtTab button{position:relative}
+.mtTab button .cek{position:absolute;top:4px;right:6px;font-size:11px;color:#5fd39a}
+@keyframes goyang{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.spSlot{display:flex;flex-direction:column;gap:6px}
+.spSlot .s{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.05);
+  border:1px dashed rgba(255,255,255,.18);border-radius:9px;padding:8px 11px;
+  font-size:11.5px;color:#8d8073}
+.spSlot .s.isi{border-style:solid;border-color:rgba(120,220,170,.5);
+  background:rgba(60,140,100,.16);color:#dff3e8;font-weight:600}
+.spSlot .s .no{width:20px;height:20px;border-radius:50%;flex:none;display:flex;
+  align-items:center;justify-content:center;background:rgba(255,255,255,.12);
+  font-size:10px;font-weight:800}
+.spSlot .s.isi .no{background:linear-gradient(180deg,#5fd39a,#2f9c68);color:#08301f}
+.spPilih{display:flex;flex-direction:column;gap:6px}
+.spPilih button{display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer;
+  background:linear-gradient(150deg,rgba(46,32,42,.85),rgba(28,18,26,.8));
+  border:1px solid rgba(255,255,255,.11);border-radius:9px;padding:9px 11px;
+  font-family:var(--font);font-size:11.8px;color:#cfc3b8;transition:.16s}
+.spPilih button i{font-style:normal;font-size:18px}
+.spPilih button:hover{transform:translateX(4px);border-color:rgba(216,178,94,.5)}
+.spPilih button.pakai{opacity:.3;pointer-events:none;transform:none}
+.spPilih button.salah,.spGrid button.salah{border-color:#d5342f;animation:goyang .3s}
+.spGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.spGrid button{cursor:pointer;background:linear-gradient(150deg,rgba(46,32,42,.85),rgba(28,18,26,.8));
+  border:1px solid rgba(255,255,255,.11);border-radius:10px;padding:7px 6px 8px;
+  font-family:var(--font);font-size:10.5px;font-weight:600;color:#cfc3b8;transition:.16s;
+  display:flex;flex-direction:column;gap:5px;align-items:center;line-height:1.3}
+.spGrid button .gb{width:100%;height:46px;border-radius:6px;background:rgba(255,255,255,.06);
+  display:flex;align-items:center;justify-content:center;font-size:22px;overflow:hidden}
+.spGrid button .gb img{width:100%;height:100%;object-fit:contain;padding:2px}
+.spGrid button:hover{transform:translateY(-2px);border-color:rgba(216,178,94,.5)}
+.spGrid button.ambil{opacity:.34;pointer-events:none;transform:none;
+  border-color:rgba(120,220,170,.55)}
+.spChip{display:flex;flex-wrap:wrap;gap:6px}
+.spChip button{cursor:pointer;background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:6px 12px;
+  font-family:var(--font);font-size:11px;font-weight:600;color:#cfc3b8;transition:.16s}
+.spChip button:hover{background:rgba(216,178,94,.22)}
+.spChip button.sudah{opacity:.38;pointer-events:none;background:rgba(60,140,100,.2)}
+.spBalon{background:linear-gradient(150deg,rgba(52,40,26,.7),rgba(30,22,16,.6));
+  border-left:3px solid var(--emas);border-radius:9px;padding:9px 12px;margin-top:6px}
+.spBalon b{display:block;color:var(--emas2);font-size:11px;margin-bottom:3px}
+.spBalon p{font-size:11.8px;line-height:1.55;color:#cfc3b8}
+.spOpsi{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.spOpsi button{text-align:left;cursor:pointer;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.13);border-radius:9px;padding:9px 11px;
+  font-family:var(--font);font-size:11.5px;line-height:1.5;color:#cfc3b8;transition:.16s}
+.spOpsi button:hover{border-color:rgba(216,178,94,.55)}
+.spOpsi button.benar{border-color:#3aa66b;background:rgba(58,166,107,.2);color:#dff3e8}
+.spOpsi button.keliru{border-color:#d5342f;background:rgba(213,52,47,.18)}
+.spOpsi button.mati{pointer-events:none}
+#spPesan{position:absolute;left:26px;right:26px;bottom:72px;padding:10px 13px;border-radius:10px;
+  background:rgba(24,16,22,.97);border:1px solid rgba(216,178,94,.42);font-size:11.4px;
+  line-height:1.5;color:#cfc3b8;opacity:0;pointer-events:none;transition:opacity .25s;z-index:3}
+#spPesan.tampil{opacity:1}
+#spPesan.buruk{border-color:rgba(213,52,47,.6)}
+#spPesan b{display:block;color:var(--emas2);margin-bottom:3px}
+#spPesan.buruk b{color:#ff9a95}
+
+/* ---------- ruang pengakhiran & ruang hasil ---------- */
+.pilarT{background:linear-gradient(150deg,rgba(46,32,42,.85),rgba(28,18,26,.8));
+  border:1px solid rgba(255,255,255,.11);border-left:3px solid rgba(216,178,94,.5);
+  border-radius:10px;padding:10px 13px;cursor:pointer;transition:.16s}
+.pilarT:hover{transform:translateX(4px)}
+.pilarT h5{display:flex;align-items:center;gap:7px;font-family:var(--judul);
+  font-size:13px;color:var(--emas2);margin:0}
+.pilarT .cek{margin-left:auto;font-size:12px;color:#5f5a55}
+.pilarT.dibaca{border-left-color:#3aa66b}
+.pilarT.dibaca .cek{color:#5fd39a}
+.pilarT p{display:none;font-size:11.8px;line-height:1.55;color:#cfc3b8;margin-top:7px}
+.pilarT.dibaca p{display:block}
+.hsBaris{display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px dashed rgba(255,255,255,.1);font-size:11.8px;color:#cfc3b8}
+.hsBaris:last-child{border-bottom:none}
+.hsBaris .st{margin-left:auto;font-weight:800;font-size:10.5px;white-space:nowrap}
+.hsBaris .st.ya{color:#5fd39a} .hsBaris .st.no{color:#d99} .hsBaris .st.na{color:#8d8073}
+.hsNilai{text-align:center;padding:4px 0 2px}
+.hsNilai .n{font-family:var(--judul);font-size:64px;color:#5fd39a;line-height:1}
+.hsNilai .m{font-size:15px;color:var(--emas2);font-weight:700;margin-top:2px}
+.hsNilai .b{font-size:22px;color:var(--emas);letter-spacing:3px;margin-top:6px}
+.hsNilai .k{font-size:11px;color:#8d8073;margin-top:7px;line-height:1.5}
+.tblAbu2{border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);
+  color:#e8dcc8;cursor:pointer;font-family:var(--font);font-weight:700;font-size:11px;
+  letter-spacing:.6px;padding:9px 16px;border-radius:22px;transition:.16s}
+.tblAbu2:hover{background:rgba(255,255,255,.16)}
+#hasilUI .pjKaki,#tutupUI .pjKaki{gap:9px}
+
+/* ---------- ruang prosedur massage (menu 4) ---------- */
+
+/* video peragaan: kartu di panel + elemen yang menempel pada layar 3D */
+.pjVideo{display:flex;flex-direction:column;gap:8px}
+.pjVideo button{display:flex;gap:11px;align-items:flex-start;text-align:left;cursor:pointer;
+  background:linear-gradient(150deg,rgba(46,32,42,.85),rgba(28,18,26,.8));
+  border:1px solid rgba(255,255,255,.11);border-radius:10px;padding:9px 11px;
+  font-family:var(--font);color:#cfc3b8;transition:.16s;width:100%}
+.pjVideo button:hover{transform:translateX(4px);border-color:rgba(216,178,94,.55)}
+.pjVideo button.main{border-color:rgba(120,220,170,.6);background:rgba(60,140,100,.16)}
+.pjVideo .sam{position:relative;width:116px;height:68px;flex:none;border-radius:7px;
+  overflow:hidden;border:1px solid rgba(255,255,255,.14)}
+.pjVideo .sam img{width:100%;height:100%;object-fit:cover;display:block}
+.pjVideo .sam::after{content:'▶';position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;background:rgba(10,6,9,.35);color:#fff;font-size:20px;
+  text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.pjVideo button.main .sam::after{content:'📺'; font-size:17px}
+.pjVideo b{display:block;color:var(--emas2);font-size:12.4px;margin-bottom:3px}
+.pjVideo p{font-size:11.4px;line-height:1.55;color:#cfc3b8}
+.pjVideo .durasi{font-size:10px;color:#8d8073;margin-top:4px}
+
+/* --- tes pengetahuan: peta + kolom jawaban + kartu seret --- */
+/* Peta soal menempel pada layar TV. Latarnya pekat karena bidang layar di
+   belakangnya gelap, dan gambar dipaskan dengan "contain" supaya proporsinya
+   tidak berubah pada layar 16:9. */
+#tesLayar{position:absolute;display:none;overflow:hidden;background:#0d0910;
+  border-radius:2px;align-items:center;justify-content:center}
+#tesLayar.tampil{display:flex}
+/* Kotak jawaban diposisikan dalam persen terhadap GAMBAR, jadi gambarnya
+   dibungkus bingkai berproporsi asli — kalau slot ditaruh langsung di bidang
+   layar 16:9, bilah kosong dari object-fit membuat posisinya meleset. */
+#tesLayar .bingkai{position:relative;height:100%;max-width:100%}
+#tesLayar img{display:block;width:100%;height:100%;
+  -webkit-user-drag:none;user-select:none}
+/* Kotak jawaban diletakkan TEPAT di atas label tercetak pada peta, jadi
+   latarnya harus pekat — kalau tembus, jawabannya terbaca dari bawah. */
+#tesLayar .slot{position:absolute;border-radius:7px;
+  background:#efe7d9;border:2px dashed #b9a88f;display:flex;align-items:center;
+  justify-content:center;font-size:clamp(6.5px,.78vw,10.5px);font-weight:700;color:#6b5c4a;
+  white-space:nowrap;letter-spacing:-.1px;
+  line-height:1.02;text-align:center;overflow:hidden;transition:.14s;
+  padding:0 1.05em 0 .35em;
+  box-shadow:0 1px 3px rgba(0,0,0,.18)}
+#tesLayar .slot.incar{border-color:#c9a227;background:#fff5da;transform:scale(1.07)}
+#tesLayar .slot.benar{border-style:solid;border-color:#3f9d74;background:#dff5e9;
+  color:#1d6b4c}
+#tesLayar .slot.benar::after{content:'✓';color:#2f8f66}
+#tesLayar .slot.salah{border-color:#d05a5a;background:#ffe1e1;color:#9c2f2f;
+  animation:tsGoyang .5s}
+#tesLayar .slot.salah::after{content:'✕';color:#c33}
+@keyframes tsGoyang{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}
+  40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+#tesLayar .slot::after{position:absolute;right:.25em;top:50%;transform:translateY(-50%);
+  font-size:1.05em;line-height:1}
+#tesLayar .slot span{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tsKartu{display:flex;flex-wrap:wrap;gap:7px}
+.tsKartu button{padding:8px 13px;border-radius:20px;cursor:grab;touch-action:none;
+  background:linear-gradient(150deg,rgba(46,32,42,.9),rgba(28,18,26,.85));
+  border:1px solid rgba(216,178,94,.45);color:#f0d79a;font-family:var(--font);
+  font-size:11.8px;font-weight:600;transition:.14s}
+.tsKartu button:hover{border-color:rgba(240,215,154,.9);transform:translateY(-2px)}
+.tsKartu button.pakai{opacity:.32;cursor:default;border-style:dashed;
+  color:#8d8073;transform:none}
+/* Kartu bayangan yang mengikuti jari selama diseret. */
+.tsHantu{position:fixed;z-index:60;transform:translate(-50%,-50%);pointer-events:none;
+  padding:8px 13px;border-radius:20px;font-family:var(--font);font-size:11.8px;
+  font-weight:600;color:#0f0a12;background:#f0d79a;
+  box-shadow:0 8px 22px rgba(0,0,0,.5)}
+/* Langkah tanpa video: bentuknya sama dengan tombol langkah bervideo agar
+   penomorannya terbaca menyatu, tetapi tidak dapat diketuk dan kotak
+   sampulnya diisi nomor langkah. Tepi putus-putus sudah cukup menandainya —
+   jangan tambahkan teks keterangan, terbaca ambigu di aplikasi. */
+.pjVideo .lkTanpa{display:flex;gap:11px;align-items:flex-start;
+  background:rgba(255,255,255,.035);border:1px dashed rgba(255,255,255,.13);
+  border-radius:10px;padding:9px 11px;color:#cfc3b8}
+.pjVideo .sam.nihil{display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.05);color:#8d8073;font-size:21px;font-weight:600}
+.pjVideo .sam.nihil::after{content:none}
+/* Wadah tayangan yang menempel pada layar 3D. Gambar maupun video sama-sama
+   ditampilkan sebagai elemen HTML di sini, BUKAN digambar ke kanvas tekstur:
+   lewat file://, menggambar berkas gambar ke kanvas menodainya dan WebGL
+   menolak mengunggahnya ("Tainted canvases may not be loaded"). */
+#tayangLayar{position:absolute;display:none;background:#07060a;cursor:zoom-in;
+  overflow:hidden;box-shadow:0 0 26px rgba(0,0,0,.6)}
+#tayangLayar.tampil{display:block}
+/* Tingkat zoom: 1 masih bisa didekatkan lagi, 2 sudah paling dekat. Pada
+   tingkat 2 panel samping disurutkan agar gambarnya boleh selebar jendela. */
+#tayangLayar.dekat{cursor:zoom-in}
+#tayangLayar.penuh{cursor:zoom-out}
+/* Lencana ▶ saat video tertahan kebijakan autoplay: memberi tahu bahwa
+   layarnya perlu diketuk sekali untuk mulai memutar. */
+#tayangLayar.jeda{cursor:pointer}
+#tayangLayar.jeda::after{content:'▶';position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);width:66px;height:66px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  background:rgba(12,8,11,.62);color:#f0d79a;border:2px solid rgba(216,178,94,.7);
+  box-shadow:0 6px 22px rgba(0,0,0,.5);pointer-events:none}
+body.zoomPenuh #pengantarUI,body.zoomPenuh #materiUI,body.zoomPenuh #siapUI,
+body.zoomPenuh #tutupUI,body.zoomPenuh #hasilUI,body.zoomPenuh #tesUI,body.zoomPenuh #pijatUI{
+  opacity:0;pointer-events:none;transform:translateX(26px)}
+/* Pada zoom penuh panel hilang, jadi cara keluarnya perlu diberitahukan. */
+#hintZoom{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);
+  display:none;padding:7px 15px;border-radius:20px;font-size:11.5px;letter-spacing:.3px;
+  background:rgba(12,8,11,.72);color:#e8dcc9;border:1px solid rgba(216,178,94,.4);
+  backdrop-filter:blur(6px);pointer-events:none;z-index:6}
+body.zoomPenuh #hintZoom{display:block}
+#gambarLayar,#videoLayar{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;display:none}
+#gambarLayar.main,#videoLayar.main{display:block}
+
+/* pembesar gambar materi */
+#mZoom{position:fixed;inset:0;z-index:24;display:none;align-items:center;justify-content:center;
+  background:rgba(10,6,9,.93);backdrop-filter:blur(5px);cursor:zoom-out;padding:3vh 3vw}
+#mZoom.tampil{display:flex}
+#mZoom img{max-width:94%;max-height:94%;border-radius:12px;
+  box-shadow:0 22px 60px rgba(0,0,0,.7)}
+
+/* ---------- petunjuk sudut ---------- */
+#judulKecil{position:absolute;left:26px;top:22px;opacity:0;transition:opacity .8s ease .6s}
+#judulKecil.tampil{opacity:1}
+#judulKecil .k{font-size:9.5px;letter-spacing:2.4px;color:var(--emas2);
+  text-shadow:0 1px 8px rgba(0,0,0,.9)}
+#judulKecil .j{font-family:var(--judul);font-size:17px;color:#fff;margin-top:2px;
+  text-shadow:0 2px 10px rgba(0,0,0,.9)}
+#pandu{position:absolute;right:26px;top:24px;font-size:10.5px;letter-spacing:.6px;
+  color:#c3b4a3;text-shadow:0 1px 8px rgba(0,0,0,.9);opacity:0;transition:opacity .8s ease .8s;text-align:right;line-height:1.7}
+#pandu.tampil{opacity:1}
+@media (max-width:880px){
+  .hs .tk span{display:none}
+  .hs .tk b{font-size:11.5px}
+}
+@media (max-width:720px){
+  #pembuka{right:50%;transform:translate(50%,-46%);width:86vw}
+  #pembuka.tampil{transform:translate(50%,-50%)}
+  #pandu{display:none}
+  .hs .tk span{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="muat">
+  <div class="lilin"><i></i><b></b></div>
+  <p>Menyiapkan ruang praktik</p>
+  <div class="bar"><b id="muatBar"></b></div>
+</div>
+
+<div id="ui">
+  <div id="judulKecil">
+    <div class="k">LABORATORIUM MAYA · 3D</div>
+    <div class="j">Anatomi &amp; Fisiologi Kecantikan dan SPA</div>
+  </div>
+  <div id="pandu">Geser tetikus untuk melihat sekeliling<br>Ketuk benda bertanda untuk membuka menu</div>
+
+  <div id="pembuka">
+    <div class="kode">SMK — FASE E · DASAR-DASAR KECANTIKAN DAN SPA</div>
+    <h1>Laboratorium Maya</h1>
+    <h2>Anatomi &amp; Fisiologi untuk Kecantikan dan Spa</h2>
+    <div class="garis"></div>
+    <p>Ruang praktik sudah disiapkan — meja perawatan, trolly alat, dan lilin
+       aromaterapi menyala menunggumu di dalam.</p>
+    <div class="siap">
+      <div><b>🛏️</b>Meja perawatan<br>siap</div>
+      <div><b>🧴</b>Alat &amp; bahan<br>tertata</div>
+      <div><b>🕯️</b>Aromaterapi<br>menyala</div>
+    </div>
+    <button class="tblEmas" id="btnMasuk">MASUK RUANGAN</button>
+    <div class="isyarat" id="isyarat">🔈 Gerakkan tetikus untuk menyalakan musik ruangan</div>
+  </div>
+
+  <div id="hotspot"></div>
+
+  <!-- tayangan (gambar atau video) yang menempel pada layar tengah ruang
+       materi maupun ruang prosedur massage; posisinya dihitung tiap frame
+       dari proyeksi sudut bidang layar 3D-nya -->
+  <div id="hintZoom">Zoom 4× · ketuk layar sekali lagi untuk kembali</div>
+  <!-- peta soal tes pengetahuan, ditempelkan pada layar TV ruang tes;
+       posisinya dihitung tiap frame dari proyeksi sudut bidang layar 3D-nya -->
+  <div id="tesLayar"></div>
+
+  <div id="tayangLayar">
+    <img id="gambarLayar" alt="Tayangan di layar tengah">
+    <video id="videoLayar" loop playsinline preload="metadata"></video>
+  </div>
+
+  <!-- materi Pengantar Modul, isinya sama dengan versi non-3D -->
+  <div id="pengantarUI">
+    <div class="pjKepala">
+      <div class="k">MENU 1 DARI 7 · RUANG ORIENTASI</div>
+      <h2>Pengantar Modul</h2>
+      <p>Capaian, tujuan, dan alur belajarmu</p>
+    </div>
+    <div class="pjIsi">
+      <div class="pjKartu">
+        <h5>🎓 Identitas Modul</h5>
+        <p><b>Mata pelajaran:</b> Dasar-Dasar Kecantikan dan SPA<br>
+           <b>Fase / Kelas:</b> E — X / Semester 2<br>
+           <b>Elemen:</b> Pengetahuan anatomi dan fisiologi untuk perawatan kecantikan<br>
+           <b>Alokasi:</b> satu sesi laboratorium maya (± 45 menit)</p>
+      </div>
+      <div class="pjKartu">
+        <h5>🔬 Anatomi dan Fisiologi</h5>
+        <p>Anatomi dan fisiologi penting untuk diketahui agar kita dapat mengerti tentang
+           jaringan dan sel-sel yang membentuk kehidupan tubuh beserta fungsinya, sehingga
+           kita pula mengerti bagaimana cara memelihara tubuh setiap hari agar tetap segar,
+           sehat, dan cantik. Dalam perawatan kulit secara kosmetis, pengetahuan ini membuat
+           kita dapat menentukan jenis perawatan dan kosmetik yang dipergunakan untuk penataan
+           kecantikan kulit dan rambut sesuai keadaan tubuhnya.</p>
+        <p>Anatomi bersifat konkret karena hal-hal seperti struktur tubuh dapat dilihat,
+           dirasakan, dan diteliti secara langsung — sehingga kita tidak memerlukan imajinasi
+           untuk membayangkan bentuknya.</p>
+      </div>
+      <div class="pjKartu">
+        <h5>🎯 Capaian Pembelajaran</h5>
+        <p>Pada akhir fase E, peserta didik mampu mengaplikasikan terminologi anatomi dan
+           fisiologi untuk perawatan kecantikan, mengaplikasikan pengetahuan anatomi dan
+           fisiologi, serta mengaplikasikan pengetahuan sistem organ tubuh pada perawatan
+           kecantikan.</p>
+      </div>
+      <div class="pjKartu">
+        <h5>✅ Tujuan Pembelajaran</h5>
+        <ul>
+          <li>Menjelaskan struktur dan fungsi kulit, rambut, serta sistem otot tubuh.</li>
+          <li>Mengenali lima gerakan dasar pemijatan badan.</li>
+          <li>Menyiapkan diri, alat, dan bahan perawatan sesuai SOP.</li>
+          <li>Melakukan anamnesis dan menentukan kelayakan klien.</li>
+          <li>Mempraktikkan teknik dasar massage kaki, punggung, lengan &amp; dada.</li>
+          <li>Menutup perawatan dan menyampaikan saran after care.</li>
+        </ul>
+      </div>
+      <div class="pjKartu sorot">
+        <h5>💡 Tahukah Kamu?</h5>
+        <p class="kutip">“Memahami anatomi dan fisiologi adalah pondasi utama untuk memberikan
+           perawatan kecantikan yang aman, tepat, dan profesional.”</p>
+      </div>
+      <div class="pjKartu">
+        <h5>📚 Materi Pokok</h5>
+        <ol>
+          <li>Pengantar Anatomi dan Fisiologi</li>
+          <li>Organisasi Struktur Tubuh Manusia</li>
+          <li>Sistem Integumen (Kulit), Rambut dan Tubuh</li>
+          <li>Sistem Otot</li>
+          <li>Penerapan Anatomi dan Fisiologi dalam Perawatan Kecantikan dan Spa</li>
+        </ol>
+      </div>
+      <div class="pjKartu">
+        <h5>🗺️ Alur Modul</h5>
+        <p>Modul berjalan berurutan — setiap tahap terbuka setelah tahap sebelumnya
+           kamu selesaikan.</p>
+        <div class="pjAlur" id="pjAlur"></div>
+      </div>
+      <div class="pjKartu">
+        <h5>🧭 Cara Menggunakan</h5>
+        <ul>
+          <li>Ketuk benda bertanda di ruang praktik untuk membuka setiap menu.</li>
+          <li>Geser tetikus untuk melihat sekeliling ruangan.</li>
+          <li>Gunakan tombol di bawah untuk kembali ke ruang praktik.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="pjKaki">
+      <button class="tblEmas" id="btnPjKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <!-- materi anatomi, isinya sama dengan versi non-3D -->
+  <div id="materiUI">
+    <div class="pjKepala">
+      <div class="k">MENU 2 DARI 7 · RUANG MATERI</div>
+      <h2>Materi Anatomi &amp; Fisiologi</h2>
+      <p>Pilih topik untuk dipelajari</p>
+    </div>
+    <div class="mtTab" id="mtTab"></div>
+    <div class="pjIsi" id="mtIsi"></div>
+    <div class="pjKaki">
+      <button class="tblEmas" id="btnMtKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <!-- latihan persiapan perawatan: diri, alat & bahan, penerimaan klien -->
+  <div id="siapUI">
+    <div class="pjKepala">
+      <div class="k">MENU 3 DARI 7 · RUANG PERSIAPAN</div>
+      <h2>Persiapan Perawatan</h2>
+      <p>Siapkan diri, alat, dan terima klien sesuai SOP</p>
+    </div>
+    <div class="mtTab" id="spTab"></div>
+    <div class="pjIsi" id="spIsi"></div>
+    <div id="spPesan"></div>
+    <div class="pjKaki">
+      <button class="tblEmas" id="btnSpKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <!-- tes pengetahuan: menjodohkan nama otot (menu 5) -->
+  <div id="tesUI">
+    <div class="pjKepala">
+      <div class="k">MENU 5 DARI 7 · RUANG TES PENGETAHUAN</div>
+      <h2>Tes Pengetahuan</h2>
+      <p>Jodohkan nama otot dengan bagian tubuh yang tepat</p>
+    </div>
+    <div class="mtTab" id="tsTab"></div>
+    <div class="pjIsi" id="tsIsi"></div>
+    <div class="pjKaki">
+      <button class="tblEmas" id="btnTsKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <!-- pengakhiran & after care -->
+  <div id="tutupUI">
+    <div class="pjKepala">
+      <div class="k">MENU 6 DARI 7 · RUANG PENGAKHIRAN</div>
+      <h2>Pengakhiran &amp; After Care</h2>
+      <p>Tutup perawatan dengan rapi dan beri saran perawatan lanjutan</p>
+    </div>
+    <div class="mtTab" id="tpTab"></div>
+    <div class="pjIsi" id="tpIsi"></div>
+    <div class="pjKaki">
+      <button class="tblEmas" id="btnTpKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <!-- hasil -->
+  <div id="hasilUI">
+    <div class="pjKepala">
+      <div class="k">MENU 7 DARI 7 · RUANG PENGHARGAAN</div>
+      <h2>Hasil</h2>
+      <p>Rekap capaianmu di seluruh ruang praktik</p>
+    </div>
+    <div class="pjIsi" id="hsIsi"></div>
+    <div class="pjKaki">
+      <button class="tblAbu2" id="btnHsUlang">ULANGI DARI AWAL</button>
+      <button class="tblEmas" id="btnHsKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <!-- prosedur massage: titik teknik, galeri langkah, dan simulasi -->
+  <div id="pijatUI">
+    <div class="pjKepala">
+      <div class="k">MENU 4 DARI 7 · RUANG PROSEDUR MASSAGE</div>
+      <h2>Prosedur Massage</h2>
+      <p>Pilih area tubuh untuk mempelajari titik dan langkah pemijatannya</p>
+    </div>
+    <div class="mtTab" id="pjTab"></div>
+    <div class="pjIsi" id="pjIsi"></div>
+    <div class="pjKaki">
+      <button class="tblEmas" id="btnPjPijatKembali">‹ KEMBALI KE RUANG SPA</button>
+    </div>
+  </div>
+
+  <div id="bar">
+    <div class="ket">Pilih benda bertanda untuk memulai — <b id="barNama">tujuh menu tersedia</b></div>
+    <button class="ikon" id="btnMusik" title="Musik latar">🔊</button>
+    <button class="ikon" id="btnPandang" title="Kembali ke pandangan awal">🎥</button>
+    <button class="ikon" id="btnKeluar" title="Kembali ke layar pembuka">↩</button>
+  </div>
+
+  <div id="panel">
+    <div class="ik" id="panelIk">🛏️</div>
+    <div class="sub" id="panelSub">MENU</div>
+    <h3 id="panelJudul"></h3>
+    <p id="panelIsi"></p>
+    <div class="aksi">
+      <button class="tblAbu" id="panelTutup">TUTUP</button>
+    </div>
+  </div>
+</div>
+
+<div id="mZoom"><img id="mZoomFoto" alt="Ilustrasi materi diperbesar"></div>
+<div id="vignette"></div>
+<div id="tirai"></div>
+<audio id="bgm" src="assets/bgmSpa.mp3" loop preload="auto"></audio>
+<script src="lib/three.global.js"></script>
+<script src="lib/mentor.js"></script>
+<script src="lib/materi2.js"></script>
+<script src="lib/alat.js"></script>
+<script src="spa3d.js"></script>
+</body>
+</html>
